@@ -2,17 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import GameBoard from '@/components/GameBoard';
-import GameControls from '@/components/GameControls';
-import GameStatus from '@/components/GameStatus';
-import PlayerInfo from '@/components/PlayerInfo';
+import GameBoard from '../../components/GameBoard';
+import GameControls from '../../components/GameControls';
+import GameStatus from '../../components/GameStatus';
+import PlayerInfo from '../../components/PlayerInfo';
 import { 
   initializeBoard, 
   Board, 
   Player, 
   GameStatus as GameStatusType, 
   getWinningCombination 
-} from '@/utils/gameLogic';
+} from '../../utils/gameLogic';
 
 export default function MultiplayerGame() {
   const router = useRouter();
@@ -50,7 +50,7 @@ export default function MultiplayerGame() {
     const playerId = Math.random().toString(36).substring(2, 10);
     
     // Connect to WebSocket server
-    const ws = new WebSocket(`ws://localhost:8080?id=${playerId}&name=${storedName}`);
+    const ws = new WebSocket(`ws://localhost:8081?id=${playerId}&name=${storedName}`);
     wsRef.current = ws;
     
     ws.onopen = () => {

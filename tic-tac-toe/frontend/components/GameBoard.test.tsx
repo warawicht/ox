@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import GameBoard from './GameBoard';
-import { initializeBoard } from '@/utils/gameLogic';
+import { initializeBoard } from '../utils/gameLogic';
 
 describe('GameBoard', () => {
   const mockOnCellClick = jest.fn();

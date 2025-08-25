@@ -1,20 +1,7 @@
 import { Server } from 'ws';
 import { createServer } from 'http';
 import { parse } from 'url';
-import { initializeBoard, Player } from '@/utils/gameLogic';
-
-// Type definitions for our game state
-type Game = {
-  id: string;
-  board: (Player | null)[];
-  currentPlayer: Player;
-  players: {
-    X: { id: string; name: string } | null;
-    O: { id: string; name: string } | null;
-  };
-  status: string;
-  winner: Player | null;
-};
+import { Board, Player, GameStatus, Game } from '@shared/types/game';
 
 // In-memory storage for games and connections
 const games: Map<string, Game> = new Map();
@@ -91,7 +78,7 @@ function handleJoinGame(playerId: string, payload: any) {
   if (!game) {
     game = {
       id: gameId,
-      board: initializeBoard(),
+      board: Array(9).fill(null),
       currentPlayer: 'X',
       players: { X: null, O: null },
       status: 'WAITING_FOR_OPPONENT',
@@ -223,7 +210,7 @@ function handleMakeMove(playerId: string, payload: any) {
 }
 
 // Check for winner
-function checkWinner(board: (Player | null)[]): Player | null {
+function checkWinner(board: Board): Player | null {
   const winCombos = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
     [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
@@ -293,7 +280,7 @@ function handleDisconnect(playerId: string) {
 }
 
 // Start the server
-const PORT = process.env.WS_PORT || 8080;
+const PORT = process.env.WS_PORT || 8081;
 server.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`);
 });

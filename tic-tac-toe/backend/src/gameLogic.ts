@@ -1,13 +1,4 @@
-// Game board representation
-export type Player = 'X' | 'O' | null;
-export type Board = Player[];
-export type GameStatus = 
-  | 'WAITING_FOR_OPPONENT' 
-  | 'PLAYER_X_TURN' 
-  | 'PLAYER_O_TURN' 
-  | 'PLAYER_X_WON' 
-  | 'PLAYER_O_WON' 
-  | 'DRAW';
+import { Board, Player, GameStatus } from '@shared/types/game';
 
 // Win combinations
 const WIN_COMBINATIONS = [

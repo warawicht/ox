@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { initializeBoard } from '@/utils/gameLogic';
+import { initializeBoard } from '../../../utils/gameLogic';
 
 // This is a simple in-memory store for games
 // In a real application, you would use a database

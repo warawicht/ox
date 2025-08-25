@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Player } from '@/utils/gameLogic';
+import { Player } from '../utils/gameLogic';
 
 interface PlayerInfoProps {
   player: Player;

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Board, Player } from '@/utils/gameLogic';
+import { Board, Player } from '../utils/gameLogic';
 
 interface GameBoardProps {
   board: Board;

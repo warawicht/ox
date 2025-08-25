@@ -1,36 +1,141 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tic-Tac-Toe Game
+
+A multiplayer Tic-Tac-Toe game built with Next.js, TypeScript, and WebSocket.
+
+## Project Structure
+
+This project follows a frontend-backend separation architecture:
+
+```
+tic-tac-toe/
+├── frontend/                # Next.js frontend application
+│   ├── app/                 # App Router pages and components
+│   ├── components/          # Reusable UI components
+│   ├── utils/               # Frontend utilities
+│   └── ...                  # Configuration files
+├── backend/                 # Standalone WebSocket server
+│   ├── src/                 # Backend source code
+│   └── ...                  # Configuration files
+├── shared/                  # Shared code between frontend and backend
+│   └── types/               # Shared TypeScript types
+└── ...                      # Root configuration files
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js (version 16 or higher)
+- npm (version 7 or higher, for workspaces support)
+
+### Installation
+
+1. Install dependencies for all workspaces:
+   ```bash
+   npm install
+   ```
+
+### Development
+
+Start both frontend and backend in development mode:
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Or start them separately:
+```bash
+# Start only frontend
+npm run dev:frontend
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# Start only backend
+npm run dev:backend
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Production
 
-## Learn More
+1. Build the frontend:
+   ```bash
+   npm run build
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Start the applications:
+   ```bash
+   npm run start
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Or start them separately:
+```bash
+# Start only frontend
+npm run start:frontend
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Start only backend
+npm run start:backend
+```
 
-## Deploy on Vercel
+## Available Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Root Scripts
+- `npm run dev` - Start both frontend and backend in development mode
+- `npm run dev:frontend` - Start only frontend in development mode
+- `npm run dev:backend` - Start only backend in development mode
+- `npm run build` - Build the frontend application
+- `npm run build:frontend` - Build the frontend application
+- `npm run build:backend` - Build the backend application
+- `npm run start` - Start both frontend and backend in production mode
+- `npm run start:frontend` - Start only frontend in production mode
+- `npm run start:backend` - Start only backend in production mode
+- `npm run test` - Run tests for both frontend and backend
+- `npm run lint` - Run linting for frontend
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Frontend Scripts
+- `npm run dev` - Start frontend development server
+- `npm run build` - Build frontend for production
+- `npm run start` - Start frontend production server
+- `npm run test` - Run frontend tests
+- `npm run test:watch` - Run frontend tests in watch mode
+- `npm run test:coverage` - Run frontend tests with coverage report
+- `npm run lint` - Run ESLint
+
+### Backend Scripts
+- `npm run dev` - Start backend development server
+- `npm run build` - Build backend for production
+- `npm run start` - Start backend production server
+- `npm run test` - Run backend tests
+- `npm run test:watch` - Run backend tests in watch mode
+
+## Architecture
+
+### Frontend
+The frontend is a Next.js application that uses:
+- React for UI components
+- Tailwind CSS for styling
+- WebSocket client for real-time multiplayer functionality
+
+### Backend
+The backend is a standalone WebSocket server that:
+- Manages game state and player connections
+- Handles game logic and move validation
+- Broadcasts game updates to connected players
+
+### Shared Types
+Common TypeScript types are shared between frontend and backend to ensure consistency.
+
+## Testing
+
+Run tests for both frontend and backend:
+```bash
+npm run test
+```
+
+Run tests with coverage:
+```bash
+npm run test:coverage
+```
+
+## Deployment
+
+### Frontend
+The frontend can be deployed to any static hosting service (Vercel, Netlify, etc.) or served by the backend.
+
+### Backend
+The backend can be deployed to any Node.js hosting service or containerized with Docker.

@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import GameBoard from '@/components/GameBoard';
-import GameControls from '@/components/GameControls';
-import GameStatus from '@/components/GameStatus';
-import PlayerInfo from '@/components/PlayerInfo';
+import GameBoard from '../../components/GameBoard';
+import GameControls from '../../components/GameControls';
+import GameStatus from '../../components/GameStatus';
+import PlayerInfo from '../../components/PlayerInfo';
 import { 
   initializeBoard, 
   Board, 
@@ -14,8 +14,8 @@ import {
   calculateGameStatus, 
   makeMove, 
   getWinningCombination 
-} from '@/utils/gameLogic';
-import { getAIMove, Difficulty } from '@/utils/aiLogic';
+} from '../../utils/gameLogic';
+import { getAIMove, Difficulty } from '../../utils/aiLogic';
 
 export default function VsCpuGame() {
   const router = useRouter();

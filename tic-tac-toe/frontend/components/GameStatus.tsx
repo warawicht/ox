@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { GameStatus, Player } from '@/utils/gameLogic';
+import { GameStatus, Player } from '../utils/gameLogic';
 
 interface GameStatusProps {
   status: GameStatus;

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import VsCpuGame from './page';
-import * as gameLogic from '@/utils/gameLogic';
+import * as gameLogic from '../../utils/gameLogic';
 import * as aiLogic from '@/utils/aiLogic';
 
 // Mock next/navigation
