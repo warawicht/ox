@@ -24,7 +24,7 @@ This document outlines the design for a Tic-Tac-Toe (OX) game that supports both
 
 ### 2.2 Technology Stack
 
-- **Frontend**: HTML5, CSS3, JavaScript (potentially with React or similar framework)
+- **Frontend**: Next.js with React for server-side rendering and client-side interactivity
 - **Backend**: Node.js with WebSocket for real-time communication
 - **Networking**: WebSocket protocol for real-time gameplay
 - **Game State Management**: In-memory storage with potential for database persistence
@@ -218,20 +218,78 @@ graph TD
 - Game result display
 - Connection status
 
-## 10. Testing Strategy
+## 10. Next.js Implementation Details
 
-### 10.1 Unit Tests
+### 10.1 Project Structure
+```
+src/
+├── components/
+│   ├── GameBoard.tsx
+│   ├── GameControls.tsx
+│   ├── GameStatus.tsx
+│   └── PlayerInfo.tsx
+├── pages/
+│   ├── api/
+│   ├── _app.tsx
+│   ├── index.tsx
+│   ├── multiplayer.tsx
+│   └── vs-cpu.tsx
+├── styles/
+│   └── globals.css
+└── utils/
+    ├── gameLogic.ts
+    └── aiLogic.ts
+```
+
+### 10.2 Key Next.js Features Utilized
+- **Server-Side Rendering (SSR)**: For initial game state loading
+- **Static Site Generation (SSG)**: For static pages like rules and about
+- **API Routes**: For handling game initialization and user authentication
+- **Dynamic Routing**: For different game modes (multiplayer vs CPU)
+- **Image Optimization**: For game assets and player avatars
+- **Built-in CSS Support**: For styling components
+
+### 10.3 Component Hierarchy
+```mermaid
+graph TD
+    A[App] --> B[GameModeSelector]
+    A --> C[Header]
+    A --> D[Footer]
+    B --> E[MultiplayerGame]
+    B --> F[VsCpuGame]
+    E --> G[GameBoard]
+    E --> H[GameControls]
+    E --> I[GameStatus]
+    F --> G
+    F --> H
+    F --> I
+```
+
+## 11. Testing Strategy
+
+### 11.1 Unit Tests
 - Game logic validation
 - Win condition detection
 - AI decision making
 - Network message handling
 
-### 10.2 Integration Tests
+### 11.2 Integration Tests
 - End-to-end gameplay
 - Network communication
 - Player disconnection handling
 
-### 10.3 User Acceptance Tests
+### 11.3 Next.js Component Tests
+- React component rendering tests using Jest and React Testing Library
+- Snapshot testing for UI components
+- Mocking WebSocket connections for component testing
+- Testing server-side rendering functions
+
+### 11.4 End-to-End Tests
+- Cypress or Playwright tests for full user flows
+- Testing both multiplayer and CPU modes
+- Network simulation for multiplayer testing
+
+### 11.5 User Acceptance Tests
 - UI responsiveness
 - Game flow validation
 - Multiplayer synchronization
