@@ -168,6 +168,18 @@ function handleJoinGame(playerId: string, payload: any) {
   // Update player mode to game
   playerModes.set(playerId, 'game');
   
+  // Check if this is a lobby game and update accordingly
+  const lobbyGame = lobbyGames.get(gameId);
+  if (lobbyGame) {
+    // Update player count in lobby game
+    lobbyGame.playerCount = (game.players.X ? 1 : 0) + (game.players.O ? 1 : 0);
+    
+    // If both players have joined, remove from lobby
+    if (game.players.X && game.players.O) {
+      lobbyGames.delete(gameId);
+    }
+  }
+  
   // Notify players
   notifyPlayers(gameId, {
     type: 'GAME_UPDATE',
@@ -198,6 +210,12 @@ function handleJoinGame(playerId: string, payload: any) {
         }
       }
     });
+    
+    // Remove from lobby if it was there
+    if (lobbyGame) {
+      lobbyGames.delete(gameId);
+      sendLobbyUpdate();
+    }
   } else if (!isNewPlayer) {
     // If this is a reconnection, send GAME_START to the reconnecting player
     const ws = connections.get(playerId);
@@ -419,9 +437,9 @@ function handleJoinLobbyGame(playerId: string, payload: any, playerName: string)
   // Update player mode to game
   playerModes.set(playerId, 'game');
   
-  // Remove game from lobby if it was there
+  // Update lobby game player count if it exists
   if (lobbyGame) {
-    lobbyGames.delete(gameId);
+    lobbyGame.playerCount = 2;
   }
   
   // Notify both players
@@ -440,8 +458,9 @@ function handleJoinLobbyGame(playerId: string, payload: any, playerName: string)
     }
   });
   
-  // Broadcast lobby update to all lobby clients if the game was in the lobby
+  // Remove game from lobby now that both players have joined
   if (lobbyGame) {
+    lobbyGames.delete(gameId);
     sendLobbyUpdate();
   }
 }
@@ -528,21 +547,35 @@ function cleanupLobbyGames() {
       return;
     }
     
-    // Check if the game has both players
-    if (game.players.X && game.players.O) {
+    // Check if the game is full based on playerCount or player slots
+    if (lobbyGame.playerCount >= lobbyGame.maxPlayers || (game.players.X && game.players.O)) {
       // Game is full, remove from lobby
       console.log(`Removing lobby game ${gameId} - game is full`);
       lobbyGames.delete(gameId);
       return;
     }
     
-    // Check if the game creator is still connected
+    // Check if the game creator is still connected to the lobby
     const creatorId = game.players.X?.id;
-    if (creatorId && !connections.has(creatorId)) {
-      // Creator disconnected, remove game
-      console.log(`Removing lobby game ${gameId} - creator disconnected`);
-      games.delete(gameId);
-      lobbyGames.delete(gameId);
+    if (creatorId && !connections.has(creatorId) && playerModes.get(creatorId) !== 'lobby') {
+      // Creator disconnected from lobby, but check if there are other players in the game
+      if (!game.players.O) {
+        // No other players in the game, check if the game has started
+        const gameHasStarted = game.status !== 'WAITING_FOR_OPPONENT';
+        if (!gameHasStarted) {
+          // Game hasn't started and no players, remove it completely
+          console.log(`Removing lobby game ${gameId} - creator disconnected from lobby and no other players`);
+          games.delete(gameId);
+          lobbyGames.delete(gameId);
+        } else {
+          // Game has started, keep main game but remove from lobby
+          console.log(`Removing lobby game ${gameId} from lobby but keeping main game - creator disconnected`);
+          lobbyGames.delete(gameId);
+        }
+      } else {
+        // Other players are in the game, keep it available in lobby
+        console.log(`Keeping lobby game ${gameId} available - creator disconnected but other players present`);
+      }
       return;
     }
     
@@ -575,10 +608,13 @@ function handleDisconnect(playerId: string, mode: 'lobby' | 'game') {
   const game = games.get(gameId);
   if (game) {
     let playerRemoved = false;
+    let wasCreator = false;
+    const isLobbyGame = lobbyGames.has(gameId);
     
     if (game.players.X?.id === playerId) {
       game.players.X = null;
       playerRemoved = true;
+      wasCreator = true;
       console.log(`Player ${playerId} removed from X position in game ${gameId}`);
     }
     if (game.players.O?.id === playerId) {
@@ -589,10 +625,18 @@ function handleDisconnect(playerId: string, mode: 'lobby' | 'game') {
     
     // If a player was removed, reset game status
     if (playerRemoved) {
-      game.status = 'WAITING_FOR_OPPONENT';
-      game.currentPlayer = 'X';
-      game.board = Array(9).fill(null);
-      game.winner = null;
+      // Only reset the game if it's not in progress and not a lobby game that should remain available
+      const gameInProgress = game.status !== 'WAITING_FOR_OPPONENT' && 
+                             game.status !== 'PLAYER_X_TURN' && 
+                             game.status !== 'PLAYER_O_TURN';
+      
+      // Don't reset lobby games that are waiting for players
+      if (!isLobbyGame || gameInProgress) {
+        game.status = 'WAITING_FOR_OPPONENT';
+        game.currentPlayer = 'X';
+        game.board = Array(9).fill(null);
+        game.winner = null;
+      }
       
       // Notify remaining player
       notifyPlayers(gameId, {
@@ -601,37 +645,38 @@ function handleDisconnect(playerId: string, mode: 'lobby' | 'game') {
       });
     }
     
-    // If both players left, check if this is a lobby game
-    if (!game.players.X && !game.players.O) {
-      // Check if this is a lobby game
-      const isLobbyGame = lobbyGames.has(gameId);
-      console.log(`Game ${gameId} has no players. Is lobby game: ${isLobbyGame}`);
-      
-      // Only remove lobby games if they haven't been started properly
-      // A game that has been started should remain in the system even if both players disconnect
-      const gameHasStarted = game.status !== 'WAITING_FOR_OPPONENT';
-      
-      // If player disconnected from lobby and game hasn't started, remove the game
-      // If player disconnected from game, keep the game for potential reconnection
-      if (isLobbyGame && !gameHasStarted && mode === 'lobby') {
-        // Remove both lobby and main game for lobby games that haven't started
-        games.delete(gameId);
-        lobbyGames.delete(gameId);
-        console.log(`Removed lobby game ${gameId}`);
-      } else if (isLobbyGame && mode === 'lobby') {
-        // For lobby games that have started, just remove from lobby but keep the main game
-        lobbyGames.delete(gameId);
-        console.log(`Removed lobby game ${gameId} from lobby but kept main game`);
-      }
-      // If player disconnected from game mode, keep the game for potential reconnection
-      // This allows players to rejoin games even after disconnecting
-    } else if (game.players.X || game.players.O) {
-      // If one player is still in the game, check if this is a lobby game
-      const isLobbyGame = lobbyGames.has(gameId);
-      if (isLobbyGame && mode === 'lobby') {
-        // For lobby games where one player is still connected, just remove from lobby but keep the main game
-        lobbyGames.delete(gameId);
-        console.log(`Removed lobby game ${gameId} from lobby but kept main game`);
+    // Handle lobby game cleanup
+    if (isLobbyGame) {
+      const lobbyGame = lobbyGames.get(gameId);
+      if (lobbyGame) {
+        // If creator disconnected from lobby but game still exists, keep it in lobby
+        // Only remove from lobby if:
+        // 1. Both players have left the game entirely
+        // 2. Game is full (both positions filled)
+        // 3. Creator disconnected and there are no other players
+        
+        if (!game.players.X && !game.players.O) {
+          // No players left in game
+          console.log(`Game ${gameId} has no players. Is lobby game: ${isLobbyGame}`);
+          
+          // Remove from lobby but keep main game for potential reconnection
+          lobbyGames.delete(gameId);
+          console.log(`Removed lobby game ${gameId} from lobby but kept main game`);
+        } else if (game.players.X && game.players.O) {
+          // Both players have joined, remove from lobby
+          lobbyGames.delete(gameId);
+          console.log(`Removed lobby game ${gameId} from lobby because both players have joined`);
+        } else if (wasCreator && mode === 'lobby' && !game.players.O) {
+          // Creator disconnected from lobby and no other players
+          // Keep game available for reconnection but update lobby game player count
+          lobbyGame.playerCount = game.players.X ? 1 : 0;
+          console.log(`Creator disconnected from lobby, keeping game available`);
+        } else {
+          // Update player count in lobby game
+          const playerCount = (game.players.X ? 1 : 0) + (game.players.O ? 1 : 0);
+          lobbyGame.playerCount = playerCount;
+          console.log(`Updated lobby game ${gameId} player count to ${playerCount}`);
+        }
       }
     }
   }
