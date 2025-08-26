@@ -1,15 +1,20 @@
 import { Server } from 'ws';
 import { createServer } from 'http';
 import { parse } from 'url';
-import { Board, Player, GameStatus, Game, LobbyGame } from '@shared/types/game';
+
+
+import { Board, Player, GameStatus, Game, LobbyGame } from '../../shared/types/game';
 
 // In-memory storage for games and connections
 const games: Map<string, Game> = new Map();
-const connections: Map<string, WebSocket> = new Map();
+const connections: Map<string, any> = new Map();
 const playerGames: Map<string, string> = new Map();
 
 // In-memory storage for lobby
 const lobbyGames: Map<string, LobbyGame> = new Map();
+
+// Track which players are in lobby vs game mode
+const playerModes: Map<string, 'lobby' | 'game'> = new Map();
 
 // Create HTTP server
 const server = createServer();
@@ -18,44 +23,52 @@ const server = createServer();
 const wss = new Server({ server });
 
 wss.on('connection', (ws, req) => {
-  // Parse the URL to get player info
-  const url = req.url ? parse(req.url, true) : null;
-  const playerId = Array.isArray(url?.query?.id) ? url?.query?.id[0] : url?.query?.id || '';
-  const playerName = Array.isArray(url?.query?.name) ? url?.query?.name[0] : url?.query?.name || 'Anonymous';
-  const isInLobby = url?.query?.lobby === 'true';
-  
-  if (!playerId) {
-    ws.close(4000, 'Player ID is required');
-    return;
-  }
-  
-  // Store the connection
-  connections.set(playerId, ws);
-  
-  console.log(`Player ${playerName} (${playerId}) connected ${isInLobby ? '(lobby)' : '(game)'}`);
-  
-  // Handle incoming messages
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      handleMessage(playerId, data, playerName);
-    } catch (error) {
-      console.error('Error parsing message:', error);
-      ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Invalid message format' } }));
+  try {
+    // Parse the URL to get player info
+    const url = req.url ? parse(req.url, true) : null;
+    const playerId = Array.isArray(url?.query?.id) ? url?.query?.id[0] : url?.query?.id || '';
+    const playerName = Array.isArray(url?.query?.name) ? url?.query?.name[0] : url?.query?.name || 'Anonymous';
+    const isInLobby = url?.query?.lobby === 'true';
+    
+    if (!playerId) {
+      ws.close(4000, 'Player ID is required');
+      return;
     }
-  });
-  
-  // Handle disconnection
-  ws.on('close', () => {
-    handleDisconnect(playerId);
-  });
-  
-  // Send connection confirmation
-  ws.send(JSON.stringify({ type: 'CONNECTED', payload: { playerId, playerName } }));
-  
-  // If player is in lobby, send initial lobby state
-  if (isInLobby) {
-    sendLobbyUpdate();
+    
+    // Store the connection
+    connections.set(playerId, ws);
+    
+    // Track player mode (lobby or game)
+    playerModes.set(playerId, isInLobby ? 'lobby' : 'game');
+    
+    console.log(`Player ${playerName} (${playerId}) connected ${isInLobby ? '(lobby)' : '(game)'}`);
+    
+    // Handle incoming messages
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        handleMessage(playerId, data, playerName);
+      } catch (error) {
+        console.error('Error parsing message:', error);
+        ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Invalid message format' } }));
+      }
+    });
+    
+    // Handle disconnection
+    ws.on('close', () => {
+      handleDisconnect(playerId, playerModes.get(playerId) || 'game');
+    });
+    
+    // Send connection confirmation
+    ws.send(JSON.stringify({ type: 'CONNECTED', payload: { playerId, playerName } }));
+    
+    // If player is in lobby, send initial lobby state
+    if (isInLobby) {
+      sendLobbyUpdate();
+    }
+  } catch (error) {
+    console.error('Error in WebSocket connection handler:', error);
+    ws.close(4001, 'Internal server error');
   }
 });
 
@@ -105,27 +118,55 @@ function handleJoinGame(playerId: string, payload: any) {
     games.set(gameId, game);
   }
   
-  // Assign player to a role (X or O)
-  let playerRole: 'X' | 'O' | null = null;
-  
-  if (!game.players.X) {
-    game.players.X = { id: playerId, name: playerName };
-    playerRole = 'X';
-  } else if (!game.players.O) {
-    game.players.O = { id: playerId, name: playerName };
-    playerRole = 'O';
-    game.status = 'PLAYER_X_TURN';
-  } else {
-    // Game is full
-    const ws = connections.get(playerId);
-    if (ws) {
-      ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Game is full' } }));
-    }
-    return;
+  // Reset game state if needed (in case of player disconnection)
+  // Only reset if both players are missing
+  if (!game.players.X && !game.players.O) {
+    game.status = 'WAITING_FOR_OPPONENT';
+    game.currentPlayer = 'X';
+    game.board = Array(9).fill(null);
+    game.winner = null;
   }
   
-  // Associate player with game
-  playerGames.set(playerId, gameId);
+  // Check if player is already in the game
+  let playerRole: 'X' | 'O' | null = null;
+  let isNewPlayer = false;
+  
+  if (game.players.X?.id === playerId) {
+    playerRole = 'X';
+  } else if (game.players.O?.id === playerId) {
+    playerRole = 'O';
+  } else {
+    // Player is not in the game, assign them a role
+    isNewPlayer = true;
+    
+    if (!game.players.X) {
+      game.players.X = { id: playerId, name: playerName };
+      playerRole = 'X';
+      // If this is the first player, keep status as WAITING_FOR_OPPONENT
+      if (game.players.O) {
+        game.status = 'PLAYER_X_TURN';
+      }
+    } else if (!game.players.O) {
+      game.players.O = { id: playerId, name: playerName };
+      playerRole = 'O';
+      game.status = 'PLAYER_X_TURN';
+    } else {
+      // Game is full
+      const ws = connections.get(playerId);
+      if (ws) {
+        ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Game is full' } }));
+      }
+      return;
+    }
+  }
+  
+  // Associate player with game (only for new players)
+  if (isNewPlayer) {
+    playerGames.set(playerId, gameId);
+  }
+  
+  // Update player mode to game
+  playerModes.set(playerId, 'game');
   
   // Notify players
   notifyPlayers(gameId, {
@@ -146,6 +187,7 @@ function handleJoinGame(playerId: string, payload: any) {
     notifyPlayers(gameId, {
       type: 'GAME_START',
       payload: {
+        gameId: game.id,
         playerRole,
         game: {
           ...game,
@@ -156,6 +198,25 @@ function handleJoinGame(playerId: string, payload: any) {
         }
       }
     });
+  } else if (!isNewPlayer) {
+    // If this is a reconnection, send GAME_START to the reconnecting player
+    const ws = connections.get(playerId);
+    if (ws) {
+      ws.send(JSON.stringify({
+        type: 'GAME_START',
+        payload: {
+          gameId: game.id,
+          playerRole,
+          game: {
+            ...game,
+            players: {
+              X: game.players.X ? { name: game.players.X.name } : null,
+              O: game.players.O ? { name: game.players.O.name } : null,
+            }
+          }
+        }
+      }));
+    }
   }
 }
 
@@ -225,6 +286,14 @@ function handleMakeMove(playerId: string, payload: any) {
       }
     }
   });
+  
+  // If game ended, remove it from lobby if it was there
+  if (game.status === 'PLAYER_X_WON' || game.status === 'PLAYER_O_WON' || game.status === 'DRAW') {
+    if (lobbyGames.has(gameId)) {
+      lobbyGames.delete(gameId);
+      sendLobbyUpdate();
+    }
+  }
 }
 
 // Handle creating a game in the lobby
@@ -239,7 +308,7 @@ function handleCreateGame(playerId: string, payload: any, playerName: string) {
     playerCount: 1,
     maxPlayers: 2,
     status: 'WAITING_FOR_OPPONENT',
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(), // Convert to ISO string for serialization
     createdBy: playerName,
   };
   
@@ -261,6 +330,9 @@ function handleCreateGame(playerId: string, payload: any, playerName: string) {
   
   games.set(gameId, game);
   playerGames.set(playerId, gameId);
+  
+  // Set player mode to lobby for the creator
+  playerModes.set(playerId, 'lobby');
   
   // Send confirmation to the creator
   const ws = connections.get(playerId);
@@ -287,6 +359,8 @@ function handleCreateGame(playerId: string, payload: any, playerName: string) {
 
 // Handle listing games in the lobby
 function handleListGames(playerId: string) {
+  // Clean up any stale games in the lobby
+  cleanupLobbyGames();
   sendLobbyUpdate(playerId);
 }
 
@@ -294,9 +368,19 @@ function handleListGames(playerId: string) {
 function handleJoinLobbyGame(playerId: string, payload: any, playerName: string) {
   const { gameId } = payload;
   
+  console.log(`Player ${playerId} attempting to join lobby game ${gameId}`);
+  
   // Check if the game exists in the lobby
   const lobbyGame = lobbyGames.get(gameId);
-  if (!lobbyGame) {
+  console.log(`Lobby game found: ${!!lobbyGame}`);
+  
+  // Check if the game exists in the main games map
+  const game = games.get(gameId);
+  console.log(`Main game found: ${!!game}`);
+  
+  // If game doesn't exist at all, send error
+  if (!game) {
+    console.log(`Game ${gameId} not found in main games map`);
     const ws = connections.get(playerId);
     if (ws) {
       ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Game not found' } }));
@@ -304,16 +388,26 @@ function handleJoinLobbyGame(playerId: string, payload: any, playerName: string)
     return;
   }
   
-  // Check if the game is still available
-  const game = games.get(gameId);
-  if (!game || game.players.O) {
+  // Reset game state if needed (in case of player disconnection)
+  if (!game.players.X && !game.players.O) {
+    game.status = 'WAITING_FOR_OPPONENT';
+    game.currentPlayer = 'X';
+    game.board = Array(9).fill(null);
+    game.winner = null;
+  }
+  
+  // Check if the game is still available (has an open slot for player O)
+  if (game.players.O) {
+    console.log(`Game ${gameId} is full`);
     const ws = connections.get(playerId);
     if (ws) {
       ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Game is no longer available' } }));
     }
-    // Remove from lobby if no longer valid
-    lobbyGames.delete(gameId);
-    sendLobbyUpdate();
+    // Remove from lobby if it was there
+    if (lobbyGame) {
+      lobbyGames.delete(gameId);
+      sendLobbyUpdate();
+    }
     return;
   }
   
@@ -322,13 +416,19 @@ function handleJoinLobbyGame(playerId: string, payload: any, playerName: string)
   game.status = 'PLAYER_X_TURN';
   playerGames.set(playerId, gameId);
   
-  // Remove game from lobby
-  lobbyGames.delete(gameId);
+  // Update player mode to game
+  playerModes.set(playerId, 'game');
+  
+  // Remove game from lobby if it was there
+  if (lobbyGame) {
+    lobbyGames.delete(gameId);
+  }
   
   // Notify both players
   notifyPlayers(gameId, {
     type: 'GAME_START',
     payload: {
+      gameId: game.id,
       playerRole: 'O',
       game: {
         ...game,
@@ -340,8 +440,10 @@ function handleJoinLobbyGame(playerId: string, payload: any, playerName: string)
     }
   });
   
-  // Broadcast lobby update to all lobby clients
-  sendLobbyUpdate();
+  // Broadcast lobby update to all lobby clients if the game was in the lobby
+  if (lobbyGame) {
+    sendLobbyUpdate();
+  }
 }
 
 // Check for winner
@@ -379,8 +481,14 @@ function notifyPlayers(gameId: string, message: any) {
 
 // Send lobby update to all lobby clients
 function sendLobbyUpdate(targetPlayerId?: string) {
-  // Convert lobby games to array
-  const lobbyGamesArray = Array.from(lobbyGames.values());
+  // Clean up any stale games in the lobby
+  cleanupLobbyGames();
+  
+  // Convert lobby games to array and serialize dates as strings
+  const lobbyGamesArray = Array.from(lobbyGames.values()).map(game => ({
+    ...game,
+    createdAt: game.createdAt // Already a string, no conversion needed
+  }));
   
   const message = {
     type: 'LOBBY_UPDATE',
@@ -405,12 +513,59 @@ function sendLobbyUpdate(targetPlayerId?: string) {
   }
 }
 
+// Clean up stale games from the lobby
+function cleanupLobbyGames() {
+  const now = new Date();
+  const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+  
+  lobbyGames.forEach((lobbyGame, gameId) => {
+    // Check if the game still exists in the main games map
+    const game = games.get(gameId);
+    if (!game) {
+      // Game no longer exists, remove from lobby
+      console.log(`Removing lobby game ${gameId} - game no longer exists in main games map`);
+      lobbyGames.delete(gameId);
+      return;
+    }
+    
+    // Check if the game has both players
+    if (game.players.X && game.players.O) {
+      // Game is full, remove from lobby
+      console.log(`Removing lobby game ${gameId} - game is full`);
+      lobbyGames.delete(gameId);
+      return;
+    }
+    
+    // Check if the game creator is still connected
+    const creatorId = game.players.X?.id;
+    if (creatorId && !connections.has(creatorId)) {
+      // Creator disconnected, remove game
+      console.log(`Removing lobby game ${gameId} - creator disconnected`);
+      games.delete(gameId);
+      lobbyGames.delete(gameId);
+      return;
+    }
+    
+    // Check if the game is older than 10 minutes
+    const gameAge = now.getTime() - new Date(lobbyGame.createdAt).getTime();
+    if (gameAge > tenMinutes) {
+      // Game is too old, remove it
+      console.log(`Removing lobby game ${gameId} - game is too old`);
+      games.delete(gameId);
+      lobbyGames.delete(gameId);
+    }
+  });
+}
+
 // Handle player disconnection
-function handleDisconnect(playerId: string) {
-  console.log(`Player ${playerId} disconnected`);
+function handleDisconnect(playerId: string, mode: 'lobby' | 'game') {
+  console.log(`Player ${playerId} disconnected from ${mode}`);
   
   // Remove connection
   connections.delete(playerId);
+  
+  // Remove player mode tracking
+  playerModes.delete(playerId);
   
   // Get game ID for this player
   const gameId = playerGames.get(playerId);
@@ -419,30 +574,73 @@ function handleDisconnect(playerId: string) {
   // Remove player from game
   const game = games.get(gameId);
   if (game) {
+    let playerRemoved = false;
+    
     if (game.players.X?.id === playerId) {
       game.players.X = null;
+      playerRemoved = true;
+      console.log(`Player ${playerId} removed from X position in game ${gameId}`);
     }
     if (game.players.O?.id === playerId) {
       game.players.O = null;
+      playerRemoved = true;
+      console.log(`Player ${playerId} removed from O position in game ${gameId}`);
     }
     
-    // Notify remaining player
-    notifyPlayers(gameId, {
-      type: 'PLAYER_DISCONNECTED',
-      payload: { playerId }
-    });
+    // If a player was removed, reset game status
+    if (playerRemoved) {
+      game.status = 'WAITING_FOR_OPPONENT';
+      game.currentPlayer = 'X';
+      game.board = Array(9).fill(null);
+      game.winner = null;
+      
+      // Notify remaining player
+      notifyPlayers(gameId, {
+        type: 'PLAYER_DISCONNECTED',
+        payload: { playerId }
+      });
+    }
     
-    // If both players left, remove the game
+    // If both players left, check if this is a lobby game
     if (!game.players.X && !game.players.O) {
-      games.delete(gameId);
-      // Also remove from lobby if it was there
-      lobbyGames.delete(gameId);
-      sendLobbyUpdate();
+      // Check if this is a lobby game
+      const isLobbyGame = lobbyGames.has(gameId);
+      console.log(`Game ${gameId} has no players. Is lobby game: ${isLobbyGame}`);
+      
+      // Only remove lobby games if they haven't been started properly
+      // A game that has been started should remain in the system even if both players disconnect
+      const gameHasStarted = game.status !== 'WAITING_FOR_OPPONENT';
+      
+      // If player disconnected from lobby and game hasn't started, remove the game
+      // If player disconnected from game, keep the game for potential reconnection
+      if (isLobbyGame && !gameHasStarted && mode === 'lobby') {
+        // Remove both lobby and main game for lobby games that haven't started
+        games.delete(gameId);
+        lobbyGames.delete(gameId);
+        console.log(`Removed lobby game ${gameId}`);
+      } else if (isLobbyGame && mode === 'lobby') {
+        // For lobby games that have started, just remove from lobby but keep the main game
+        lobbyGames.delete(gameId);
+        console.log(`Removed lobby game ${gameId} from lobby but kept main game`);
+      }
+      // If player disconnected from game mode, keep the game for potential reconnection
+      // This allows players to rejoin games even after disconnecting
+    } else if (game.players.X || game.players.O) {
+      // If one player is still in the game, check if this is a lobby game
+      const isLobbyGame = lobbyGames.has(gameId);
+      if (isLobbyGame && mode === 'lobby') {
+        // For lobby games where one player is still connected, just remove from lobby but keep the main game
+        lobbyGames.delete(gameId);
+        console.log(`Removed lobby game ${gameId} from lobby but kept main game`);
+      }
     }
   }
   
   // Remove player-game association
   playerGames.delete(playerId);
+  
+  // Broadcast lobby update to all lobby clients
+  sendLobbyUpdate();
 }
 
 // Start the server

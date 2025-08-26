@@ -1,4 +1,4 @@
-import { Board, Player, GameStatus } from '@shared/types/game';
+import { Board, Player, GameStatus } from './shared/types/game';
 
 // Win combinations
 const WIN_COMBINATIONS = [

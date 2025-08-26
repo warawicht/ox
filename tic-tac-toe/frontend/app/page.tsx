@@ -33,33 +33,35 @@ export default function Home() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+        <div className="grid grid-cols-1 gap-6 w-full">
           <Link 
             href="/lobby" 
             className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
           >
             <div className="text-5xl mb-4">👥</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Game Lobby</h2>
-            <p className="text-gray-600 text-center">Find and join games or create your own</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Multiplayer</h2>
+            <p className="text-gray-600 text-center">Play against another player - Create or join games in the lobby</p>
           </Link>
 
-          <Link 
-            href="/multiplayer" 
-            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
-          >
-            <div className="text-5xl mb-4">🔗</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Direct Connect</h2>
-            <p className="text-gray-600 text-center">Play with a friend using a game ID</p>
-          </Link>
-
-          <Link 
-            href="/vs-cpu" 
-            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
-          >
-            <div className="text-5xl mb-4">🤖</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">vs CPU</h2>
-            <p className="text-gray-600 text-center">Play against the computer</p>
-          </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Link 
+              href="/vs-cpu" 
+              className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
+            >
+              <div className="text-5xl mb-4">🤖</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">vs CPU</h2>
+              <p className="text-gray-600 text-center">Play against the computer</p>
+            </Link>
+            
+            <Link 
+              href="/multiplayer" 
+              className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
+            >
+              <div className="text-5xl mb-4">🔗</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Direct Connect</h2>
+              <p className="text-gray-600 text-center">Play with a friend using a game ID</p>
+            </Link>
+          </div>
         </div>
 
         <div className="mt-8 text-center text-gray-600">
