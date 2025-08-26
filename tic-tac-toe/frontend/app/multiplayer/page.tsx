@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import GameBoard from '../../components/GameBoard';
 import GameControls from '../../components/GameControls';
 import GameStatus from '../../components/GameStatus';
@@ -16,6 +16,7 @@ import {
 
 export default function MultiplayerGame() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [board, setBoard] = useState<Board>(initializeBoard());
   const [currentPlayer, setCurrentPlayer] = useState<Player>('X');
   const [status, setStatus] = useState<GameStatusType>('WAITING_FOR_OPPONENT');
@@ -42,15 +43,18 @@ export default function MultiplayerGame() {
     const storedName = localStorage.getItem('playerName') || 'Player';
     setPlayerName(storedName);
     
-    // Generate a random game ID
-    const newGameId = Math.random().toString(36).substring(2, 10);
+    // Check if we're joining an existing game from the lobby
+    const lobbyGameId = searchParams.get('gameId');
+    
+    // Generate a random game ID if not provided
+    const newGameId = lobbyGameId || Math.random().toString(36).substring(2, 10);
     setGameId(newGameId);
     
     // Generate a random player ID
     const playerId = Math.random().toString(36).substring(2, 10);
     
     // Connect to WebSocket server
-    const ws = new WebSocket(`ws://localhost:8081?id=${playerId}&name=${storedName}`);
+    const ws = new WebSocket(`ws://localhost:8080?id=${playerId}&name=${storedName}`);
     wsRef.current = ws;
     
     ws.onopen = () => {
@@ -89,7 +93,7 @@ export default function MultiplayerGame() {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [searchParams]);
 
   // Handle incoming WebSocket messages
   const handleMessage = (data: any) => {
@@ -256,7 +260,11 @@ export default function MultiplayerGame() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold mb-4">How to Play</h2>
             <ul className="list-disc pl-5 space-y-2 text-gray-700">
-              <li>Share the game ID with a friend: <strong>{gameId}</strong></li>
+              {playerRole === 'X' ? (
+                <li>Share the game ID with a friend: <strong>{gameId}</strong></li>
+              ) : (
+                <li>You've joined game: <strong>{gameId}</strong></li>
+              )}
               <li>Take turns placing X and O on the board</li>
               <li>First to get 3 in a row wins</li>
               <li>Rows, columns, and diagonals all count</li>
@@ -272,6 +280,15 @@ export default function MultiplayerGame() {
                   Game ID: <span className="font-mono">{gameId}</span>
                 </p>
               )}
+            </div>
+            
+            <div className="mt-4">
+              <button 
+                onClick={() => router.push('/lobby')}
+                className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Back to Lobby
+              </button>
             </div>
           </div>
         </div>

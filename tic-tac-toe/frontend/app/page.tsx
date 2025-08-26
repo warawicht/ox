@@ -1,10 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const [playerName, setPlayerName] = useState('Player');
+
+  // Save player name to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('playerName', playerName);
+  }, [playerName]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4">
@@ -30,12 +35,21 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
           <Link 
+            href="/lobby" 
+            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
+          >
+            <div className="text-5xl mb-4">👥</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Game Lobby</h2>
+            <p className="text-gray-600 text-center">Find and join games or create your own</p>
+          </Link>
+
+          <Link 
             href="/multiplayer" 
             className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-500"
           >
-            <div className="text-5xl mb-4">🌐</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Multiplayer</h2>
-            <p className="text-gray-600 text-center">Play against another player over the network</p>
+            <div className="text-5xl mb-4">🔗</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Direct Connect</h2>
+            <p className="text-gray-600 text-center">Play with a friend using a game ID</p>
           </Link>
 
           <Link 

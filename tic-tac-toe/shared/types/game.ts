@@ -17,7 +17,13 @@ export type WebSocketMessageType =
   | 'GAME_UPDATE'
   | 'MOVE_MADE'
   | 'PLAYER_DISCONNECTED'
-  | 'ERROR';
+  | 'ERROR'
+  // Lobby message types
+  | 'CREATE_GAME'
+  | 'LIST_GAMES'
+  | 'JOIN_LOBBY_GAME'
+  | 'LOBBY_UPDATE'
+  | 'GAME_CREATED';
 
 // WebSocket message structure
 export interface WebSocketMessage {
@@ -28,6 +34,7 @@ export interface WebSocketMessage {
 // Game state structure
 export interface Game {
   id: string;
+  name?: string; // Optional friendly name for the game
   board: Board;
   currentPlayer: Player;
   players: {
@@ -36,4 +43,15 @@ export interface Game {
   };
   status: GameStatus;
   winner: Player | null;
+}
+
+// Lobby game model
+export interface LobbyGame {
+  id: string;
+  name: string; // Friendly name for the game
+  playerCount: number;
+  maxPlayers: number;
+  status: 'WAITING_FOR_OPPONENT';
+  createdAt: Date;
+  createdBy: string; // Player name who created the game
 }
